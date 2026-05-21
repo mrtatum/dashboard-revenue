@@ -1,0 +1,1063 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Financial System Infrastructure - Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 24px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background: #f5f7fb; color: #1f2937; }
+  h1 { margin: 0 0 4px 0; font-size: 26px; color: #111827; }
+  .sub { color: #6b7280; font-size: 14px; margin-bottom: 18px; }
+  .toolbar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; background: #fff; padding: 14px 18px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); margin-bottom: 18px; }
+  .toolbar label { font-weight: 600; color: #374151; font-size: 14px; }
+  select, input[type=search] { padding: 8px 14px; font-size: 14px; border: 1px solid #d1d5db; border-radius: 8px; background: #fff; min-width: 130px; cursor: pointer; }
+  .ms-wrap { position: relative; display: inline-block; }
+  .ms-trigger { padding: 8px 14px; font-size: 14px; border: 1px solid #d1d5db; border-radius: 8px; background: #fff; min-width: 170px; cursor: pointer; text-align: left; font-weight: 400; display: inline-flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .ms-trigger:hover { background: #f9fafb; }
+  .ms-trigger .ms-caret { color: #6b7280; font-size: 11px; }
+  .ms-panel { position: absolute; top: calc(100% + 4px); left: 0; z-index: 1000; background: #fff; border: 1px solid #d1d5db; border-radius: 8px; box-shadow: 0 6px 18px rgba(0,0,0,0.12); padding: 6px; min-width: 240px; max-height: 340px; overflow-y: auto; }
+  .ms-panel[hidden] { display: none; }
+  .ms-actions { display: flex; gap: 6px; padding: 4px 6px 6px; border-bottom: 1px solid #f3f4f6; margin-bottom: 4px; }
+  .ms-actions button { padding: 4px 8px; font-size: 12px; border: 1px solid #d1d5db; border-radius: 6px; background: #fff; cursor: pointer; }
+  .ms-actions button:hover { background: #f3f4f6; }
+  .ms-list label { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 4px; cursor: pointer; font-size: 13px; color: #111827; }
+  .ms-list label:hover { background: #f3f4f6; }
+  .ms-list input[type=checkbox] { cursor: pointer; }
+  input[type=search] { min-width: 220px; cursor: text; }
+  select:focus, input:focus { outline: 2px solid #3b82f6; outline-offset: 1px; }
+  button { padding: 8px 14px; font-size: 14px; border: 1px solid #d1d5db; border-radius: 8px; background: #fff; cursor: pointer; font-weight: 500; }
+  button.primary { background: #3b82f6; color: #fff; border-color: #3b82f6; }
+  button:hover { background: #f9fafb; }
+  button.primary:hover { background: #2563eb; }
+  .tabs { display: flex; gap: 4px; margin-bottom: 18px; border-bottom: 1px solid #e5e7eb; }
+  .tab { padding: 10px 18px; cursor: pointer; font-size: 14px; font-weight: 500; color: #6b7280; border: none; background: transparent; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+  .tab.active { color: #3b82f6; border-bottom-color: #3b82f6; }
+  .tab:hover:not(.active) { color: #374151; }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; margin-bottom: 18px; }
+  .kpi { background: #fff; padding: 16px 18px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+  .kpi-label { color: #6b7280; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
+  .kpi-value { font-size: 26px; font-weight: 700; color: #111827; margin-top: 6px; }
+  .kpi-sub { font-size: 12px; color: #6b7280; margin-top: 4px; }
+  .kpi.win .kpi-value { color: #059669; }
+  .kpi.lost .kpi-value { color: #dc2626; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 18px; }
+  @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+  .card { background: #fff; padding: 18px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+  .card h3 { margin: 0 0 14px 0; font-size: 15px; color: #374151; }
+  .chart-box { position: relative; height: 280px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #f3f4f6; vertical-align: top; }
+  th { color: #6b7280; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; cursor: pointer; user-select: none; }
+  th.sortable:hover { color: #111827; }
+  th .arrow { color: #3b82f6; margin-left: 4px; }
+  th.num { text-align: right; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  tbody tr:nth-child(even) { background: #f9fafb; }
+  tbody tr:hover { background: #eff6ff; }
+  .empty { text-align: center; color: #9ca3af; padding: 40px 0; font-size: 14px; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+  .b-Win { background: #d1fae5; color: #065f46; }
+  .b-Lost { background: #fee2e2; color: #991b1b; }
+  .b-Drop { background: #fef3c7; color: #92400e; }
+  .b-InProgress { background: #dbeafe; color: #1e40af; }
+  .b-Inactive { background: #f3f4f6; color: #4b5563; }
+  .table-wrap { overflow-x: auto; }
+  .pager { display: flex; gap: 8px; align-items: center; justify-content: flex-end; padding: 12px 0 0 0; font-size: 13px; color: #6b7280; }
+  .pager button { padding: 4px 10px; border: 1px solid #d1d5db; border-radius: 6px; background: #fff; cursor: pointer; }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+  <h1>Financial System Infrastructure - Dashboard</h1>
+  <div class="sub">Data baked from <strong>Sources/Pipeline/Pipeline system team.xlsx</strong> + <strong>131 files in Sources/SQ/</strong> • generated <strong>2026-05-07 11:48:33</strong> • Order data filtered to <strong>Cost Center HI05000</strong>. To refresh, ask Claude to "rebuild dashboard".</div>
+
+  <div class="toolbar" id="toolbar">
+    <label for="yearSel">Year:</label>
+    <select id="yearSel"></select>
+    <label for="quarterSel">Quarter:</label>
+    <select id="quarterSel">
+      <option value="all">All Quarters</option>
+      <option value="1">Q1</option><option value="2">Q2</option><option value="3">Q3</option><option value="4">Q4</option>
+    </select>
+    <label for="teamSel">Team:</label>
+    <select id="teamSel"></select>
+    <label for="resultSelTop">Outcome:</label>
+    <select id="resultSelTop">
+      <option value="all">All Outcomes</option>
+      <option value="In Progress">In Progress</option>
+      <option value="Win">Win</option>
+      <option value="Lost">Lost</option>
+      <option value="Drop">Drop</option>
+      <option value="Inactive">Inactive</option>
+    </select>
+    <button id="refreshBtn" class="primary" title="Hard-reload the page to pick up the latest rebuild">↻ Refresh</button>
+    <span style="margin-left:auto; color:#6b7280; font-size:13px;">Built: 2026-05-07 11:48:33</span>
+  </div>
+
+  <div class="tabs" id="tabs">
+    <button class="tab active" data-tab="overview">Overview</button>
+    <button class="tab" data-tab="list">In-Progress Pipeline</button>
+    <button class="tab" data-tab="orders">Order Received</button>
+  </div>
+
+  <!-- Order Received tab -->
+  <div id="tab-orders" class="hidden">
+    <div class="toolbar">
+      <label for="orderYearSel">Year:</label>
+      <select id="orderYearSel"><option value="all">All Years</option></select>
+      <label for="orderCcSel">Cost Center:</label>
+      <select id="orderCcSel"><option value="all">All Cost Centers</option><option value="HI05000" selected>HI05000</option></select>
+      <label for="orderTeamSel">Team:</label>
+      <select id="orderTeamSel"><option value="all">All Teams</option></select>
+      <label for="orderTypeSel">Type:</label>
+      <select id="orderTypeSel"><option value="all">All Types</option></select>
+      <label for="orderCustSel">Customer:</label>
+      <select id="orderCustSel"><option value="all">All Customers</option></select>
+      <label for="orderProductBtn">Product:</label>
+      <div class="ms-wrap" id="orderProductWrap">
+        <button type="button" id="orderProductBtn" class="ms-trigger" aria-haspopup="listbox" aria-expanded="false">
+          <span id="orderProductLabel">All Products</span><span class="ms-caret">▾</span>
+        </button>
+        <div class="ms-panel" id="orderProductPanel" hidden>
+          <div class="ms-actions">
+            <button type="button" data-action="all">Select all</button>
+            <button type="button" data-action="none">Clear</button>
+          </div>
+          <div class="ms-list" id="orderProductList"></div>
+        </div>
+      </div>
+      <button id="refreshBtn2" class="primary" title="Hard-reload to pick up the latest rebuild">↻ Refresh</button>
+      <span id="orderCount" style="margin-left:auto; color:#6b7280; font-size:13px;"></span>
+    </div>
+    <div class="kpis" id="orderKpis"></div>
+    <div class="grid">
+      <div class="card"><h3>Revenue by Category</h3><div class="chart-box"><canvas id="orderTypeChart"></canvas></div></div>
+      <div class="card"><h3>Revenue by Products (Heatmap)</h3><div id="orderSplitChart" style="position:relative; height:480px; width:100%;"></div></div>
+    </div>
+    <div class="card" style="margin-bottom:18px;">
+      <h3>Orders Summary</h3>
+      <div class="table-wrap"><table id="orderSummaryTable">
+        <thead><tr>
+          <th class="sortable" data-key="sq_no">SQ No.</th>
+          <th class="sortable" data-key="project_no">Project No.</th>
+          <th class="sortable" data-key="project_name">Project Name</th>
+          <th class="sortable" data-key="customer">Customer</th>
+          <th class="sortable" data-key="sales_rep">Sales Rep</th>
+          <th class="sortable" data-key="type_of_sale">Type</th>
+          <th class="sortable" data-key="start_date">Start</th>
+          <th class="sortable" data-key="end_date">End</th>
+          <th class="sortable num" data-key="total_revenue">Revenue</th>
+          <th class="sortable num" data-key="total_cost">Cost</th>
+          <th class="sortable num" data-key="total_gp">GP</th>
+          <th class="sortable num" data-key="gp_pct">%GP</th>
+        </tr></thead><tbody id="orderSummaryBody"></tbody>
+      </table></div>
+    </div>
+    <div class="card">
+      <h3>Line Items — by Type</h3>
+      <div class="table-wrap"><table id="orderItemsTable">
+        <thead><tr>
+          <th>Type</th><th>SQ No.</th><th>Customer</th><th>Item</th><th>BU</th>
+          <th class="num">Revenue</th><th class="num">Cost</th><th class="num">GP</th><th class="num">%GP</th>
+          <th>MA Period</th><th>Reference / Remark</th>
+        </tr></thead><tbody id="orderItemsBody"></tbody>
+      </table></div>
+    </div>
+  </div>
+
+  <!-- In-Progress Pipeline tab -->
+  <div id="tab-list" class="hidden">
+    <div class="toolbar">
+      <label for="listYearSel">Year:</label>
+      <select id="listYearSel"></select>
+      <label for="listQuarterSel">Quarter:</label>
+      <select id="listQuarterSel">
+        <option value="all">All Quarters</option>
+        <option value="1">Q1</option><option value="2">Q2</option><option value="3">Q3</option><option value="4">Q4</option>
+      </select>
+      <label for="listTeamSel">Team:</label>
+      <select id="listTeamSel"></select>
+      <label for="resultSel">Outcome:</label>
+      <select id="resultSel">
+        <option value="In Progress" selected>In Progress</option>
+        <option value="all">All Outcomes</option>
+        <option value="Win">Win</option><option value="Lost">Lost</option><option value="Drop">Drop</option><option value="Inactive">Inactive</option>
+      </select>
+      <label for="winPctSel">% Win:</label>
+      <select id="winPctSel">
+        <option value="all">All</option>
+        <option value="25">25% (&lt; 50)</option>
+        <option value="50">50% (50–69)</option>
+        <option value="75">75% (≥ 70)</option>
+      </select>
+      <input type="search" id="searchBox" placeholder="Search project, customer, sales, product…" />
+      <button id="refreshBtn3" class="primary" title="Hard-reload">↻ Refresh</button>
+      <span id="listCount" style="margin-left:auto; color:#6b7280; font-size:13px;"></span>
+    </div>
+    <div class="card">
+      <div class="table-wrap"><table id="pipelineList">
+        <thead><tr>
+          <th class="sortable" data-key="year">Year</th>
+          <th class="sortable" data-key="quarter">Q</th>
+          <th class="sortable" data-key="projectCode">Project Code</th>
+          <th class="sortable" data-key="project">Project Name</th>
+          <th class="sortable" data-key="customer">Customer</th>
+          <th class="sortable" data-key="sales">Sales</th>
+          <th class="sortable" data-key="product">Product</th>
+          <th class="sortable num" data-key="revenue">Revenue</th>
+          <th class="sortable num" data-key="winPct">% Win</th>
+          <th class="sortable" data-key="status">Status</th>
+        </tr></thead><tbody id="pipelineListBody"></tbody>
+      </table></div>
+      <div class="pager">
+        <span id="pageInfo"></span>
+        <button id="prevPage">‹ Prev</button>
+        <button id="nextPage">Next ›</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Overview tab -->
+  <div id="tab-overview">
+    <div class="kpis" id="kpis"></div>
+    <div class="grid">
+      <div class="card"><h3>Revenue by Quarter (THB)</h3><div class="chart-box"><canvas id="qChart"></canvas></div></div>
+      <div class="card"><h3>Win / Lost / Drop Outcomes</h3><div class="chart-box"><canvas id="resChart"></canvas></div></div>
+    </div>
+    <div class="grid">
+      <div class="card"><h3>Revenue by Team</h3><div class="chart-box"><canvas id="teamChart"></canvas></div></div>
+      <div class="card"><h3>Top Products by Revenue</h3><div class="chart-box"><canvas id="prodChart"></canvas></div></div>
+    </div>
+    <div class="grid">
+      <div class="card"><h3>Top 10 Sales Reps (Won Revenue)</h3><div id="salesTable"></div></div>
+      <div class="card"><h3>Top 10 Customers (Won Revenue)</h3><div id="custTable"></div></div>
+    </div>
+    <div class="card"><h3>Largest Won Deals</h3><div id="dealsTable"></div></div>
+  </div>
+
+<script>
+const EMBEDDED = __EMBEDDED_JSON__;
+const RAW = EMBEDDED.pipeline || [];
+const ORDERS = { generated_at: EMBEDDED.generated_at, orders: EMBEDDED.orders || [] };
+
+const fmtMoney = (n) => {
+  if (n == null || isNaN(n)) return '—';
+  if (n >= 1e9) return (n/1e9).toFixed(0) + 'B';
+  if (n >= 1e6) return (n/1e6).toFixed(0) + 'M';
+  if (n >= 1e3) return (n/1e3).toFixed(0) + 'K';
+  return n.toFixed(0);
+};
+// Higher-precision formatter for KPI cards
+const fmtMoney2 = (n) => {
+  if (n == null || isNaN(n)) return '—';
+  if (n >= 1e9) return (n/1e9).toFixed(2) + 'B';
+  if (n >= 1e6) return (n/1e6).toFixed(2) + 'M';
+  if (n >= 1e3) return (n/1e3).toFixed(2) + 'K';
+  return n.toFixed(2);
+};
+const fmtFull = (n) => (n==null||isNaN(n)) ? '—' : n.toLocaleString('en-US', {maximumFractionDigits:0});
+const PALETTE = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#ec4899','#84cc16','#f97316','#6366f1'];
+const RESULT_COLORS = { 'Win': '#10b981', 'Lost': '#ef4444', 'Drop': '#f59e0b', 'In Progress': '#3b82f6', 'Inactive': '#9ca3af' };
+const PRODUCT_COLORS = {
+  'Huawei':'#dc2626','Veritas':'#facc15','HPE':'#10b981','Lenovo':'#ef4444',
+  'VMware':'#0ea5e9','Cisco':'#06b6d4','Dell EMC':'#3b82f6','Nutanix':'#8b5cf6',
+  'Hitachi':'#f97316','NetApp':'#14b8a6','Red Hat':'#b91c1c','Microsoft':'#0078d4',
+  'Supermicro':'#65a30d','dcsstech':'#a855f7',
+  'Atene':'#7c3aed','Oracle':'#c2410c','Pure Storage':'#fb923c','Citrix':'#0d9488',
+  'VEEAM':'#15803d','InfoScale':'#1d4ed8','Symantec':'#facc15','Omnissa':'#22d3ee',
+  'Site Prep':'#94a3b8','Cabling':'#64748b','Professional Service':'#7c3aed',
+  'Technical Support':'#9333ea','24x7 Service':'#f59e0b','PM Service':'#fbbf24',
+  'Implementation':'#3b82f6','Presale':'#60a5fa','MA Service':'#f59e0b',
+  'Hardware (Other)':'#475569','Software (Other)':'#64748b','Subcontract (Other)':'#94a3b8',
+  'MFEC service':'#3b82f6',
+  'Other':'#9ca3af',
+};
+
+const charts = {};
+function makeChart(id, cfg) { if (charts[id]) charts[id].destroy(); charts[id] = new Chart(document.getElementById(id), cfg); }
+function esc(s) { if (s == null) return '—'; return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+// ---------- selectors ----------
+function rebuildSelectors() {
+  const years = [...new Set(RAW.map(r=>r.year).filter(Boolean))].sort((a,b)=>a-b);
+  const teams = [...new Set(RAW.map(r=>r.team).filter(Boolean))].sort();
+  const yearOpts = '<option value="all">All Years</option>' + years.map(y=>`<option value="${y}">${y}</option>`).join('');
+  const teamOpts = '<option value="all">All Teams</option>' + teams.map(t=>`<option value="${t}">${t}</option>`).join('');
+  const def = years.includes(2026) ? 2026 : years[years.length-1];
+  // Overview tab toolbar
+  document.getElementById('yearSel').innerHTML = yearOpts;
+  document.getElementById('teamSel').innerHTML = teamOpts;
+  document.getElementById('yearSel').value = def != null ? def : 'all';
+  // In-Progress Pipeline tab toolbar (independent)
+  const lYear = document.getElementById('listYearSel');
+  const lTeam = document.getElementById('listTeamSel');
+  if (lYear) { lYear.innerHTML = yearOpts; lYear.value = def != null ? def : 'all'; }
+  if (lTeam) { lTeam.innerHTML = teamOpts; }
+}
+
+function filtered() {
+  const y = document.getElementById('yearSel').value;
+  const q = document.getElementById('quarterSel').value;
+  const t = document.getElementById('teamSel').value;
+  const rsEl = document.getElementById('resultSelTop');
+  const rs = rsEl ? rsEl.value : 'all';
+  return RAW.filter(r =>
+    (y === 'all' || r.year === +y) &&
+    (q === 'all' || r.quarter === +q) &&
+    (t === 'all' || r.team === t) &&
+    (rs === 'all' || r.result === rs)
+  );
+}
+
+// ---------- overview ----------
+function renderOverview() {
+  const data = filtered();
+  const totalRev = data.reduce((s,r)=>s+(r.revenue||0),0);
+  const wonRev = data.filter(r=>r.result==='Win').reduce((s,r)=>s+(r.revenue||0),0);
+  const lostRev = data.filter(r=>r.result==='Lost').reduce((s,r)=>s+(r.revenue||0),0);
+  const won = data.filter(r=>r.result==='Win').length;
+  const lost = data.filter(r=>r.result==='Lost').length;
+  const drop = data.filter(r=>r.result==='Drop').length;
+  const prog = data.filter(r=>r.result==='In Progress').length;
+  const closed = won + lost;
+  const winRate = closed > 0 ? (won/closed*100) : 0;
+
+  document.getElementById('kpis').innerHTML = `
+    <div class="kpi"><div class="kpi-label">Total Pipeline Revenue</div><div class="kpi-value">${fmtMoney2(totalRev)}</div><div class="kpi-sub">${data.length} deals</div></div>
+    <div class="kpi win"><div class="kpi-label">Won Revenue</div><div class="kpi-value">${fmtMoney2(wonRev)}</div><div class="kpi-sub">${won} deals won</div></div>
+    <div class="kpi lost"><div class="kpi-label">Lost Revenue</div><div class="kpi-value">${fmtMoney2(lostRev)}</div><div class="kpi-sub">${lost} deals lost</div></div>
+    <div class="kpi"><div class="kpi-label">Win Rate</div><div class="kpi-value">${winRate.toFixed(1)}%</div><div class="kpi-sub">${won} won / ${closed} closed</div></div>
+    <div class="kpi"><div class="kpi-label">In Progress</div><div class="kpi-value">${prog}</div><div class="kpi-sub">${drop} dropped</div></div>`;
+
+  const quarters = ['Q1','Q2','Q3','Q4'];
+  const qWon=[0,0,0,0], qLost=[0,0,0,0], qProg=[0,0,0,0];
+  data.forEach(r => {
+    if (!r.quarter) return;
+    const idx = r.quarter - 1;
+    if (r.result === 'Win') qWon[idx] += r.revenue||0;
+    else if (r.result === 'Lost') qLost[idx] += r.revenue||0;
+    else if (r.result === 'In Progress') qProg[idx] += r.revenue||0;
+  });
+  makeChart('qChart', { type:'bar', data:{ labels:quarters, datasets:[
+      {label:'Won',data:qWon,backgroundColor:'#10b981'},
+      {label:'Lost',data:qLost,backgroundColor:'#ef4444'},
+      {label:'In Progress',data:qProg,backgroundColor:'#3b82f6'} ]},
+    options:{ responsive:true, maintainAspectRatio:false, scales:{x:{stacked:true}, y:{stacked:true, ticks:{callback:v=>fmtMoney(v)}}}, plugins:{tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${fmtFull(c.parsed.y)}`}}}} });
+
+  const resCounts = {};
+  data.forEach(r => { if (r.result) resCounts[r.result] = (resCounts[r.result]||0)+1; });
+  const resLabels = Object.keys(resCounts);
+  makeChart('resChart', { type:'doughnut', data:{ labels:resLabels, datasets:[{ data:resLabels.map(l=>resCounts[l]), backgroundColor:resLabels.map(l => RESULT_COLORS[l] || '#9ca3af') }] }, options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'right'}} } });
+
+  const teamRev = {};
+  data.forEach(r => { if (r.team && r.revenue) teamRev[r.team] = (teamRev[r.team]||0) + r.revenue; });
+  const teamEntries = Object.entries(teamRev).sort((a,b)=>b[1]-a[1]);
+  makeChart('teamChart', { type:'bar', data:{ labels:teamEntries.map(e=>e[0]), datasets:[{ label:'Revenue', data:teamEntries.map(e=>e[1]), backgroundColor:teamEntries.map((_,i)=>PALETTE[i%PALETTE.length]) }] }, options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}, tooltip:{callbacks:{label:c=>fmtFull(c.parsed.x)}}}, scales:{x:{ticks:{callback:v=>fmtMoney(v)}}} } });
+
+  const prodRev = {};
+  data.forEach(r => {
+    if (!r.revenue) return;
+    if (Array.isArray(r.brands) && r.brands.length) {
+      r.brands.forEach(b => {
+        prodRev[b.name] = (prodRev[b.name] || 0) + r.revenue * (b.share || 0);
+      });
+    } else if (r.product) {
+      prodRev[r.product] = (prodRev[r.product] || 0) + r.revenue;
+    }
+  });
+  const prodTop = Object.entries(prodRev).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  makeChart('prodChart', { type:'bar', data:{ labels:prodTop.map(e=>e[0]), datasets:[{ label:'Revenue', data:prodTop.map(e=>e[1]), backgroundColor:prodTop.map((_,i)=>PALETTE[i%PALETTE.length]) }] }, options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}, tooltip:{callbacks:{label:c=>fmtFull(c.parsed.x)}}}, scales:{x:{ticks:{callback:v=>fmtMoney(v)}}} } });
+
+  const salesAgg = {};
+  data.filter(r=>r.result==='Win').forEach(r => { if (!r.sales) return; if (!salesAgg[r.sales]) salesAgg[r.sales] = {count:0,rev:0}; salesAgg[r.sales].count++; salesAgg[r.sales].rev += (r.revenue||0); });
+  const salesTop = Object.entries(salesAgg).sort((a,b)=>b[1].rev-a[1].rev).slice(0,10);
+  document.getElementById('salesTable').innerHTML = salesTop.length ? `<table><thead><tr><th>Sales Rep</th><th class="num">Won Deals</th><th class="num">Won Revenue</th></tr></thead><tbody>${salesTop.map(([k,v])=>`<tr><td>${esc(k)}</td><td class="num">${v.count}</td><td class="num">${fmtFull(v.rev)}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">No won deals in this view</div>';
+
+  const custAgg = {};
+  data.filter(r=>r.result==='Win').forEach(r => { if (!r.customer) return; if (!custAgg[r.customer]) custAgg[r.customer] = {count:0,rev:0}; custAgg[r.customer].count++; custAgg[r.customer].rev += (r.revenue||0); });
+  const custTop = Object.entries(custAgg).sort((a,b)=>b[1].rev-a[1].rev).slice(0,10);
+  document.getElementById('custTable').innerHTML = custTop.length ? `<table><thead><tr><th>Customer</th><th class="num">Won Deals</th><th class="num">Won Revenue</th></tr></thead><tbody>${custTop.map(([k,v])=>`<tr><td>${esc(k)}</td><td class="num">${v.count}</td><td class="num">${fmtFull(v.rev)}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">No won deals in this view</div>';
+
+  const deals = data.filter(r=>r.result==='Win' && r.revenue).sort((a,b)=>b.revenue-a.revenue).slice(0,15);
+  document.getElementById('dealsTable').innerHTML = deals.length ? `<table><thead><tr><th>Project</th><th>Customer</th><th>Team</th><th>Sales</th><th>Product</th><th>Quarter</th><th class="num">Revenue</th></tr></thead><tbody>${deals.map(d=>`<tr><td>${esc(d.project)}</td><td>${esc(d.customer)}</td><td>${esc(d.team)}</td><td>${esc(d.sales)}</td><td>${esc(d.product)}</td><td>${d.quarter?'Q'+d.quarter+'/'+d.year:(d.year||'—')}</td><td class="num">${fmtFull(d.revenue)}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">No won deals in this view</div>';
+}
+
+// ---------- pipeline list ----------
+const listState = { sortKey:'revenue', sortDir:-1, page:0, pageSize:25 };
+// ---------- orders summary sort state ----------
+const ordersSortState = { sortKey:null, sortDir:1 };
+const ORDERS_NUMERIC_KEYS = new Set(['total_revenue','total_cost','total_gp','gp_pct']);
+function sortOrdersForTable(rows) {
+  const k = ordersSortState.sortKey;
+  if (!k) return rows;
+  const dir = ordersSortState.sortDir;
+  const getVal = (o) => {
+    if (k === 'gp_pct') return (o.total_revenue||0) > 0 ? (o.total_gp / o.total_revenue) : null;
+    return o[k];
+  };
+  const copy = rows.slice();
+  copy.sort((a,b) => {
+    let av = getVal(a), bv = getVal(b);
+    if (av == null && bv == null) return 0;
+    if (av == null) return 1;
+    if (bv == null) return -1;
+    if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * dir;
+    return String(av).localeCompare(String(bv)) * dir;
+  });
+  return copy;
+}
+function listFiltered() {
+  // Use the In-Progress tab's OWN dropdowns (independent from the Overview toolbar)
+  const y  = document.getElementById('listYearSel').value;
+  const q  = document.getElementById('listQuarterSel').value;
+  const t  = document.getElementById('listTeamSel').value;
+  const resVal = document.getElementById('resultSel').value;
+  const wp = document.getElementById('winPctSel').value;
+  const search = document.getElementById('searchBox').value.trim().toLowerCase();
+  let rows = RAW.filter(r =>
+    (y === 'all' || r.year === +y) &&
+    (q === 'all' || r.quarter === +q) &&
+    (t === 'all' || r.team === t)
+  );
+  if (resVal !== 'all') rows = rows.filter(r => r.result === resVal);
+  if (wp !== 'all') {
+    rows = rows.filter(r => {
+      if (r.winPct == null) return false;
+      if (wp === '25') return r.winPct < 50;
+      if (wp === '50') return r.winPct >= 50 && r.winPct < 70;
+      if (wp === '75') return r.winPct >= 70;
+      return true;
+    });
+  }
+  if (search) rows = rows.filter(r => [r.project,r.projectCode,r.customer,r.sales,r.presales,r.productRaw,r.product,r.team,r.status,r.action].filter(Boolean).join(' ').toLowerCase().includes(search));
+  const k = listState.sortKey, dir = listState.sortDir;
+  rows.sort((a,b) => {
+    let av = a[k], bv = b[k];
+    if (av == null && bv == null) return 0;
+    if (av == null) return 1;
+    if (bv == null) return -1;
+    if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * dir;
+    return String(av).localeCompare(String(bv)) * dir;
+  });
+  return rows;
+}
+function renderList() {
+  const rows = listFiltered();
+  document.getElementById('listCount').textContent = `${rows.length} deal${rows.length===1?'':'s'}`;
+  const totalPages = Math.max(1, Math.ceil(rows.length/listState.pageSize));
+  if (listState.page >= totalPages) listState.page = totalPages - 1;
+  if (listState.page < 0) listState.page = 0;
+  const start = listState.page * listState.pageSize;
+  const pageRows = rows.slice(start, start + listState.pageSize);
+  document.getElementById('pipelineListBody').innerHTML = pageRows.length ? pageRows.map(d => `
+    <tr>
+      <td>${d.year ?? '—'}</td><td>${d.quarter?'Q'+d.quarter:'—'}</td>
+      <td>${esc(d.projectCode)}</td><td>${esc(d.project)}</td>
+      <td>${esc(d.customer)}</td><td>${esc(d.sales)}</td>
+      <td>${esc(d.productRaw || d.product)}</td>
+      <td class="num">${fmtFull(d.revenue)}</td>
+      <td class="num">${d.winPct == null ? '—' : d.winPct + '%'}</td>
+      <td>${esc(d.status)}</td>
+    </tr>`).join('') : '<tr><td colspan="10" class="empty">No deals match the current filters</td></tr>';
+  document.getElementById('pageInfo').textContent = rows.length ? `Page ${listState.page+1} of ${totalPages} — showing ${start+1}–${Math.min(start+listState.pageSize, rows.length)} of ${rows.length}` : '';
+  document.getElementById('prevPage').disabled = listState.page === 0;
+  document.getElementById('nextPage').disabled = listState.page >= totalPages - 1;
+  document.querySelectorAll('#pipelineList th').forEach(th => {
+    const k = th.dataset.key;
+    const arrow = th.querySelector('.arrow');
+    if (arrow) arrow.remove();
+    if (k === listState.sortKey) {
+      const span = document.createElement('span'); span.className = 'arrow'; span.textContent = listState.sortDir === 1 ? ' ▲' : ' ▼'; th.appendChild(span);
+    }
+  });
+}
+
+// ---------- orders ----------
+// Brand/service detection (used for the Revenue-by-Products heatmap AND the Product filter dropdown).
+//
+// CANONICAL BRAND is now precomputed in bake.py and stamped onto each item as
+// `it.brand` using the same _BRAND_PATTERNS list the Pipeline page uses. This
+// JS detector is the FALLBACK for items that didn't get a brand assigned
+// (e.g. plain "Site Prep" / "Cabling" / "PM Service" rows that aren't
+// vendor-specific) and for items in older baked HTMLs that predate the
+// precomputed field.
+function detectFromText(text) {
+  if (!text || typeof text !== 'string') return null;
+  const r = text.toLowerCase();
+  // Vendors — names aligned with bake.py's _BRAND_PATTERNS canonical list.
+  if (/veritas|netbackup|backup\s*exec|flex appliance|infoscale/.test(r)) return 'Veritas';
+  if (/huawei|hawei|\bhcs\b|dorado/.test(r)) return 'Huawei';
+  if (/\bhpe\b|dhci|nimble|synergy|proliant/.test(r)) return 'HPE';
+  if (/\bhp\b(?!\s*filter)/.test(r)) return 'HP';
+  if (/lenovo+/.test(r)) return 'Lenovo';
+  if (/\bibm\b/.test(r)) return 'IBM';
+  if (/brocade|braocade/.test(r)) return 'Brocade';
+  if (/\bzte\b/.test(r)) return 'ZTE';
+  if (/\batene\b/.test(r)) return 'Atene';
+  if (/vintcom/.test(r)) return 'Vintcom';
+  if (/neo\s*connect/.test(r)) return 'NeoConnect';
+  if (/free\s*will/.test(r)) return 'Freewill';
+  if (/oracle|oacle|weblogic|exadata|exalogic/.test(r)) return 'Oracle';
+  if (/pure\s*storage|purestroage|purestorage/.test(r)) return 'Pure Storage';
+  if (/citrix/.test(r)) return 'Citrix';
+  if (/veeam/.test(r)) return 'Veeam';
+  if (/symantec/.test(r)) return 'Symantec';
+  if (/\bvdi\b|omnissa/.test(r)) return 'Omnissa';
+  if (/vmware|wmware|\bvm[\s-]?free|\bvm\b|vvf|\bvsan\b/.test(r)) return 'VMware';
+  if (/cisco/.test(r)) return 'Cisco';
+  if (/dell\s*emc|dellemc|\bdell\b|vxrail|\bdel\s+server\b/.test(r)) return 'Dell';
+  if (/nutanix|\bnkp\b|\bg7\s*-?\s*8\b/.test(r)) return 'Nutanix';
+  if (/hitachi|\bhds\b|\bvsp\b/.test(r)) return 'Hitachi';
+  if (/netapp/.test(r)) return 'NetApp';
+  if (/red\s*hat|redhat|\brhel\b/.test(r)) return 'Red Hat';
+  if (/microsoft|office 365|o365|windows/.test(r)) return 'Microsoft';
+  if (/supermicro/.test(r)) return 'Supermicro';
+  if (/fortinet/.test(r)) return 'Fortinet';
+  if (/check[\s-]*point/.test(r)) return 'Check Point';
+  if (/palo\s*alto/.test(r)) return 'Palo Alto';
+  if (/juniper/.test(r)) return 'Juniper';
+  if (/arista/.test(r)) return 'Arista';
+  if (/\bf5\b/.test(r)) return 'F5';
+  if (/trend\s*micro/.test(r)) return 'Trend Micro';
+  if (/dcsstech/.test(r)) return 'dcsstech';
+  if (/\binet\b/.test(r)) return 'Inet';
+  // Services (no parent brand) — keep as-is for the categorization.
+  if (/site prep/.test(r)) return 'Site Prep';
+  if (/cabling/.test(r)) return 'Cabling';
+  if (/professional service/.test(r)) return 'Professional Service';
+  if (/technical support/.test(r)) return 'Technical Support';
+  if (/24\s*\*?\s*7|7\s*\*?\s*24/.test(r)) return '24x7 Service';
+  if (/\bpm\b\s*\d|preventive|pm\s*\d+\s*time/.test(r)) return 'PM Service';
+  return null;
+}
+function detectProduct(remark, item, projectName, precomputedBrand) {
+  // Trust the bake-time canonical brand first — it uses the same brand list
+  // as the Pipeline page, so "IBM Storage", "Dell EMC", "Hawei (Dorodo)" etc.
+  // all roll up to a single bucket.
+  if (precomputedBrand) return precomputedBrand;
+  const fromRemark = detectFromText(remark);
+  if (fromRemark) return fromRemark;
+  const fromProject = detectFromText(projectName);
+  if (fromProject) return fromProject;
+  if (item) {
+    const c = String(item).toUpperCase().trim();
+    if (c === 'SV-IMP') return 'Implementation';
+    if (c === 'SV-PRESALE') return 'Presale';
+    if (c === 'SV-PMA' || c === 'SV-CMA') return 'MA Service';
+    if (c.startsWith('HW-')) return 'Hardware (Other)';
+    if (c.startsWith('SW-')) return 'Software (Other)';
+    if (c.startsWith('VS-')) return 'Subcontract (Other)';
+  }
+  return 'Other';
+}
+function itemProduct(it, projectName) {
+  return (it.section === 'Services') ? 'MFEC service' : detectProduct(it.remark, it.item, projectName, it.brand);
+}
+// Multi-select state for the Product filter — empty Set means "no filter / All Products"
+const orderProductFilter = new Set();
+let ALL_PRODUCTS = [];
+function updateProductLabel() {
+  const label = document.getElementById('orderProductLabel');
+  const n = orderProductFilter.size;
+  if (n === 0 || n === ALL_PRODUCTS.length) label.textContent = 'All Products';
+  else if (n === 1) label.textContent = [...orderProductFilter][0];
+  else label.textContent = n + ' products';
+}
+function renderProductList() {
+  const list = document.getElementById('orderProductList');
+  list.innerHTML = ALL_PRODUCTS.map(p => {
+    const checked = orderProductFilter.has(p) ? 'checked' : '';
+    return `<label><input type="checkbox" value="${esc(p)}" ${checked}><span>${esc(p)}</span></label>`;
+  }).join('');
+}
+function _sortCostCenters(arr) {
+  return arr.sort((a, b) => {
+    if (a === 'HI05000') return -1;
+    if (b === 'HI05000') return 1;
+    return a.localeCompare(b);
+  });
+}
+// Cost centers that have at least one item in orders matching the OTHER active
+// filters (year, team, type, customer). Called whenever those change so the
+// dropdown only shows cost centers that actually have data to display.
+function costCentersForCurrentFilters() {
+  const year = document.getElementById('orderYearSel').value;
+  const team = document.getElementById('orderTeamSel').value;
+  const type = document.getElementById('orderTypeSel').value;
+  const cust = document.getElementById('orderCustSel').value;
+  const typeKey = String(type).trim().toUpperCase();
+  const ccSet = new Set();
+  ORDERS.orders.forEach(o => {
+    if (year !== 'all' && o.year !== +year) return;
+    if (team !== 'all' && o.sale_team !== team) return;
+    if (type !== 'all' && String(o.type_of_sale || '').trim().toUpperCase() !== typeKey) return;
+    if (cust !== 'all' && o.customer !== cust) return;
+    o.items.forEach(it => { if (it.cost_center) ccSet.add(it.cost_center); });
+  });
+  return _sortCostCenters([...ccSet]);
+}
+function rebuildCostCenterDropdown() {
+  const sel = document.getElementById('orderCcSel');
+  // First-paint = the dropdown still has only the static-HTML placeholder
+  // options (HI05000 + "all", count ≤ 2). On first paint, default to HI05000.
+  const firstPaint = sel.options.length <= 2;
+  const prev = sel.value;
+  const costCenters = costCentersForCurrentFilters();
+
+  // Visual order: "All Cost Centers" first, then HI05000 (still the default
+  // *selection*), then any other CCs alphabetical.
+  const opts = ['<option value="all">All Cost Centers</option>'];
+  const hasHI05000 = costCenters.includes('HI05000');
+  if (hasHI05000) opts.push('<option value="HI05000">HI05000</option>');
+  costCenters.forEach(c => {
+    if (c !== 'HI05000') opts.push(`<option value="${esc(c)}">${esc(c)}</option>`);
+  });
+  sel.innerHTML = opts.join('');
+
+  if (firstPaint && hasHI05000) {
+    sel.value = 'HI05000';
+  } else if (prev === 'all' || costCenters.includes(prev)) {
+    // After first paint: preserve whatever the user picked, including 'all'.
+    sel.value = prev;
+  } else if (hasHI05000) {
+    // User had picked a CC that no longer exists under the new filters —
+    // fall back to HI05000.
+    sel.value = 'HI05000';
+  } else {
+    sel.value = 'all';
+  }
+}
+
+function rebuildOrderSelectors() {
+  const years = [...new Set(ORDERS.orders.map(o=>o.year).filter(Boolean))].sort((a,b)=>b-a);
+  const teams = [...new Set(ORDERS.orders.map(o=>o.sale_team).filter(Boolean))].sort();
+  // Dedup Type case-insensitively. Bake.py already uppercases short codes
+  // ("Si" → "SI"), but JS deduping is a belt-and-braces safety net for any
+  // legacy baked HTMLs.
+  const typeMap = new Map();
+  ORDERS.orders.forEach(o => {
+    const t = o.type_of_sale;
+    if (!t) return;
+    const k = String(t).trim().toUpperCase();
+    if (!typeMap.has(k)) typeMap.set(k, String(t).trim());
+  });
+  const types = [...typeMap.values()].sort();
+  const custs = [...new Set(ORDERS.orders.map(o=>o.customer).filter(Boolean))].sort();
+  // Cost centers at first load — full union across every order. The dynamic
+  // narrowing happens via rebuildCostCenterDropdown() once user filters move.
+  const ccSet = new Set();
+  ORDERS.orders.forEach(o => {
+    (o.cost_centers || []).forEach(c => ccSet.add(c));
+    if (!o.cost_centers) o.items.forEach(it => { if (it.cost_center) ccSet.add(it.cost_center); });
+  });
+  const costCenters = _sortCostCenters([...ccSet]);
+  // Union of detected product names across every line item in every order
+  const prodSet = new Set();
+  ORDERS.orders.forEach(o => o.items.forEach(it => { const p = itemProduct(it, o.project_name); if (p) prodSet.add(p); }));
+  // "MFEC service" pinned first, the rest alphabetical
+  ALL_PRODUCTS = [...prodSet].sort((a,b) => {
+    if (a === 'MFEC service') return -1;
+    if (b === 'MFEC service') return 1;
+    return a.localeCompare(b);
+  });
+  document.getElementById('orderYearSel').innerHTML = '<option value="all">All Years</option>' + years.map(y=>`<option value="${y}">${y}</option>`).join('');
+  // The Cost Center dropdown is populated by rebuildCostCenterDropdown() at the
+  // end of this function — don't overwrite it here, or the firstPaint default
+  // (HI05000) gets wiped out before rebuildCostCenterDropdown can apply it.
+  document.getElementById('orderTeamSel').innerHTML = '<option value="all">All Teams</option>' + teams.map(t=>`<option value="${esc(t)}">${esc(t)}</option>`).join('');
+  document.getElementById('orderTypeSel').innerHTML = '<option value="all">All Types</option>' + types.map(t=>`<option value="${esc(t)}">${esc(t)}</option>`).join('');
+  document.getElementById('orderCustSel').innerHTML = '<option value="all">All Customers</option>' + custs.map(t=>`<option value="${esc(t)}">${esc(t)}</option>`).join('');
+  renderProductList();
+  updateProductLabel();
+  // Default to most recent year. Then narrow the CC dropdown to cost centers
+  // that actually have items in that year, defaulting to HI05000 if present.
+  if (years.length) document.getElementById('orderYearSel').value = years[0];
+  rebuildCostCenterDropdown();
+}
+function ordersFiltered() {
+  const year = document.getElementById('orderYearSel').value;
+  const cc   = document.getElementById('orderCcSel').value;
+  const team = document.getElementById('orderTeamSel').value;
+  const type = document.getElementById('orderTypeSel').value;
+  const cust = document.getElementById('orderCustSel').value;
+  const noProdFilter = orderProductFilter.size === 0 || orderProductFilter.size === ALL_PRODUCTS.length;
+
+  // Type compared case-insensitively so "SI" and "si" can't slip past dedup.
+  const typeKey = String(type).trim().toUpperCase();
+
+  // Order-level filters (those that don't depend on the items list)
+  const base = ORDERS.orders.filter(o =>
+    (year==='all' || o.year === +year) &&
+    (team==='all' || o.sale_team===team) &&
+    (type==='all' || String(o.type_of_sale || '').trim().toUpperCase() === typeKey) &&
+    (cust==='all' || o.customer===cust)
+  );
+
+  // Always drill down to item level so we can recompute totals from the
+  // items that match BOTH the Cost Center filter AND the Product filter.
+  return base.map(o => {
+    let items = o.items;
+    if (cc !== 'all')           items = items.filter(it => it.cost_center === cc);
+    if (!noProdFilter)          items = items.filter(it => orderProductFilter.has(itemProduct(it, o.project_name)));
+    let rev=0, cost=0, gp=0;
+    items.forEach(it => { rev += it.revenue||0; cost += it.cost||0; gp += it.gp||0; });
+    return { ...o, items, total_revenue: rev, total_cost: cost, total_gp: gp };
+  }).filter(o => o.items.length > 0);
+}
+function renderOrdersTab() {
+  if (!ORDERS.orders.length) {
+    document.getElementById('orderKpis').innerHTML = '<div class="empty" style="grid-column:1/-1;">No SQ orders found</div>';
+    document.getElementById('orderSummaryBody').innerHTML = '';
+    document.getElementById('orderItemsBody').innerHTML = '';
+    return;
+  }
+  const orders = ordersFiltered();
+  document.getElementById('orderCount').textContent = `${orders.length} order${orders.length===1?'':'s'} • generated ${ORDERS.generated_at}`;
+  let totalRev=0, totalCost=0, totalGp=0;
+  const bySection = { 'Services':{rev:0,cost:0,gp:0,count:0}, 'External Service Revenue Sharing':{rev:0,cost:0,gp:0,count:0}, 'Product':{rev:0,cost:0,gp:0,count:0} };
+  orders.forEach(o => {
+    totalRev += o.total_revenue||0; totalCost += o.total_cost||0; totalGp += o.total_gp||0;
+    o.items.forEach(it => {
+      const sec = it.section in bySection ? it.section : 'Product';
+      bySection[sec].rev += it.revenue||0; bySection[sec].cost += it.cost||0; bySection[sec].gp += it.gp||0; bySection[sec].count++;
+    });
+  });
+  // Service = Section 1 (Services / MFEC); Product = Sections 2 + 3
+  const svcRev = bySection['Services'].rev;
+  const svcGp  = bySection['Services'].gp;
+  const prodRev = bySection['External Service Revenue Sharing'].rev + bySection['Product'].rev;
+  const prodGp  = bySection['External Service Revenue Sharing'].gp + bySection['Product'].gp;
+  const svcGpPct  = svcRev  > 0 ? (svcGp  / svcRev  * 100) : 0;
+  const prodGpPct = prodRev > 0 ? (prodGp / prodRev * 100) : 0;
+  const overallGpPct = totalRev > 0 ? (totalGp / totalRev * 100) : 0;
+  document.getElementById('orderKpis').innerHTML = `
+    <div class="kpi"><div class="kpi-label">Total Revenue</div><div class="kpi-value">${fmtMoney2(totalRev)}</div><div class="kpi-sub">${orders.length} orders</div></div>
+    <div class="kpi"><div class="kpi-label">Total Cost</div><div class="kpi-value">${fmtMoney2(totalCost)}</div><div class="kpi-sub">&nbsp;</div></div>
+    <div class="kpi win"><div class="kpi-label">Total GP</div><div class="kpi-value">${fmtMoney2(totalGp)}</div><div class="kpi-sub">&nbsp;</div></div>
+    <div class="kpi"><div class="kpi-label">% Overall GP</div><div class="kpi-value">${overallGpPct.toFixed(1)}%</div><div class="kpi-sub">${fmtMoney2(totalGp)} / ${fmtMoney2(totalRev)}</div></div>
+    <div class="kpi"><div class="kpi-label">% Service GP</div><div class="kpi-value">${svcGpPct.toFixed(1)}%</div><div class="kpi-sub">${fmtMoney2(svcGp)} / ${fmtMoney2(svcRev)}</div></div>
+    <div class="kpi"><div class="kpi-label">% Product GP</div><div class="kpi-value">${prodGpPct.toFixed(1)}%</div><div class="kpi-sub">${fmtMoney2(prodGp)} / ${fmtMoney2(prodRev)}</div></div>
+    <div class="kpi"><div class="kpi-label">Services</div><div class="kpi-value">${fmtMoney2(bySection['Services'].rev)}</div><div class="kpi-sub">${bySection['Services'].count} items</div></div>
+    <div class="kpi"><div class="kpi-label">Product</div><div class="kpi-value">${fmtMoney2(bySection['Product'].rev)}</div><div class="kpi-sub">${bySection['Product'].count} items</div></div>`;
+  // Categorize each item code into named buckets
+  function categorize(code) {
+    if (!code) return 'Other';
+    const c = String(code).toUpperCase().trim();
+    if (c === 'SV-IMP' || c === 'SV-PRESALE') return 'Implement service';
+    if (c === 'SV-PMA' || c === 'SV-CMA') return 'MA service';
+    if (c.startsWith('SW-')) return 'Software License';
+    if (c.startsWith('HW-')) return 'Hardware';
+    if (c.startsWith('VS-')) return 'Subcontract Service';
+    return 'Other';
+  }
+  const CAT_ORDER = ['Hardware','Software License','MA service','Implement service','Subcontract Service','Other'];
+  const CAT_COLORS = { 'Hardware':'#10b981', 'Software License':'#8b5cf6', 'MA service':'#f59e0b', 'Implement service':'#3b82f6', 'Subcontract Service':'#06b6d4', 'Other':'#9ca3af' };
+  const catAgg = {};
+  orders.forEach(o => o.items.forEach(it => {
+    const cat = categorize(it.item);
+    if (!catAgg[cat]) catAgg[cat] = { rev: 0, count: 0 };
+    catAgg[cat].rev += it.revenue || 0;
+    catAgg[cat].count++;
+  }));
+  const catLabels = CAT_ORDER.filter(c => catAgg[c] && catAgg[c].rev > 0);
+  makeChart('orderTypeChart', { type:'bar', data:{ labels: catLabels, datasets:[{
+    label:'Revenue', data: catLabels.map(c => catAgg[c].rev),
+    backgroundColor: catLabels.map(c => CAT_COLORS[c] || '#9ca3af'),
+  }]},
+    options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false}, tooltip:{callbacks:{label:c=>`${fmtFull(c.parsed.x)} • ${catAgg[c.label].count} items`}} },
+      scales:{ x:{ ticks:{ callback:v=>fmtMoney(v) } } } } });
+  const productAgg = {};
+  orders.forEach(o => o.items.forEach(it => {
+    const key = itemProduct(it, o.project_name);
+    if (!productAgg[key]) productAgg[key] = { rev: 0, count: 0 };
+    productAgg[key].rev += it.revenue || 0;
+    productAgg[key].count++;
+  }));
+  const productEntries = Object.entries(productAgg).filter(([_,v]) => v.rev > 0).sort((a,b) => b[1].rev - a[1].rev);
+
+  const sortedOrders = sortOrdersForTable(orders);
+  document.getElementById('orderSummaryBody').innerHTML = sortedOrders.map(o => {
+    const pct = (o.total_revenue||0) > 0 ? (o.total_gp/o.total_revenue*100).toFixed(1) + '%' : '—';
+    return `<tr>
+      <td>${esc(o.sq_no)}</td><td>${esc(o.project_no)}</td><td>${esc(o.project_name)}</td>
+      <td>${esc(o.customer)}</td><td>${esc(o.sales_rep)}</td><td>${esc(o.type_of_sale)}</td>
+      <td>${esc(o.start_date)}</td><td>${esc(o.end_date)}</td>
+      <td class="num">${fmtFull(o.total_revenue)}</td><td class="num">${fmtFull(o.total_cost)}</td>
+      <td class="num">${fmtFull(o.total_gp)}</td><td class="num">${pct}</td>
+    </tr>`;
+  }).join('');
+  // Update sort indicator arrows on Orders Summary headers
+  document.querySelectorAll('#orderSummaryTable th').forEach(th => {
+    const k = th.dataset.key;
+    const arrow = th.querySelector('.arrow');
+    if (arrow) arrow.remove();
+    if (k && k === ordersSortState.sortKey) {
+      const span = document.createElement('span');
+      span.className = 'arrow';
+      span.textContent = ordersSortState.sortDir === 1 ? ' ▲' : ' ▼';
+      th.appendChild(span);
+    }
+  });
+
+  const allItems = [];
+  orders.forEach(o => o.items.forEach(it => allItems.push({ ...it, sq_no:o.sq_no, customer:o.customer })));
+  const sectionOrder = { 'Services':0, 'External Service Revenue Sharing':1, 'Product':2 };
+  allItems.sort((a,b) => { const sd = (sectionOrder[a.section]??99) - (sectionOrder[b.section]??99); return sd !== 0 ? sd : (b.revenue||0)-(a.revenue||0); });
+  document.getElementById('orderItemsBody').innerHTML = allItems.length ? allItems.map(it => {
+    const pct = (it.gp_pct != null) ? (it.gp_pct*100).toFixed(1) + '%' : '—';
+    return `<tr>
+      <td><span class="badge ${it.section==='Product'?'b-Win':'b-InProgress'}">${esc(it.section)}</span></td>
+      <td>${esc(it.sq_no)}</td><td>${esc(it.customer)}</td><td>${esc(it.item)}</td><td>${esc(it.bu)}</td>
+      <td class="num">${fmtFull(it.revenue)}</td><td class="num">${fmtFull(it.cost)}</td>
+      <td class="num">${fmtFull(it.gp)}</td><td class="num">${pct}</td>
+      <td>${esc(it.ma_period)}</td><td>${esc(it.remark)}</td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="11" class="empty">No items</td></tr>';
+
+  // Render the heatmap last (so tables always render even if this fails)
+  try { renderHeatmap('orderSplitChart', productEntries); } catch(e) { console.error('heatmap', e); }
+}
+
+// Treemap heatmap rendered as percentage-positioned divs (works even when tab is hidden)
+function renderHeatmap(containerId, entries) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  container.innerHTML = '';
+  if (!entries.length) return;
+
+  const items = entries.map(([name, v]) => ({ name, rev: v.rev, count: v.count }));
+  const total = items.reduce((s, i) => s + i.rev, 0);
+  if (!total) return;
+
+  // Use a virtual aspect ratio matching the container (~ 1.5:1) for the slice/dice algorithm.
+  const VW = 1500, VH = 1000;
+
+  function layout(arr, x, y, w, h) {
+    if (!arr.length) return [];
+    if (arr.length === 1) return [{ ...arr[0], x, y, w, h }];
+    const sum = arr.reduce((s, i) => s + i.rev, 0);
+    let acc = 0, idx = 0;
+    for (let i = 0; i < arr.length; i++) {
+      acc += arr[i].rev;
+      if (acc >= sum / 2) { idx = i + 1; break; }
+    }
+    if (idx === 0) idx = 1;
+    if (idx >= arr.length) idx = arr.length - 1;
+    const left = arr.slice(0, idx);
+    const right = arr.slice(idx);
+    const leftSum = left.reduce((s, i) => s + i.rev, 0);
+    const ratio = leftSum / sum;
+    if (w >= h) {
+      const wL = w * ratio;
+      return [...layout(left, x, y, wL, h), ...layout(right, x + wL, y, w - wL, h)];
+    } else {
+      const hL = h * ratio;
+      return [...layout(left, x, y, w, hL), ...layout(right, x, y + hL, w, h - hL)];
+    }
+  }
+
+  const positions = layout(items, 0, 0, VW, VH);
+  for (const p of positions) {
+    const leftPct = (p.x / VW) * 100;
+    const topPct  = (p.y / VH) * 100;
+    const wPct    = (p.w / VW) * 100;
+    const hPct    = (p.h / VH) * 100;
+    const div = document.createElement('div');
+    div.style.cssText =
+      'position:absolute;' +
+      'left:' + leftPct + '%;' +
+      'top:' + topPct + '%;' +
+      'width:calc(' + wPct + '% - 2px);' +
+      'height:calc(' + hPct + '% - 2px);' +
+      'background:' + (PRODUCT_COLORS[p.name] || '#9ca3af') + ';' +
+      'color:#fff;box-sizing:border-box;' +
+      'display:flex;flex-direction:column;align-items:center;justify-content:center;' +
+      'padding:4px;overflow:hidden;text-align:center;border-radius:2px;font-family:inherit;';
+    div.title = p.name + ': ' + fmtFull(p.rev) + ' • ' + p.count + ' item' + (p.count===1?'':'s');
+    div.innerHTML =
+      '<div style="font-size:12px;font-weight:700;line-height:1.2">' + esc(p.name) + '</div>' +
+      '<div style="font-size:11px;opacity:0.92;margin-top:2px">' + fmtMoney(p.rev) + '</div>';
+    container.appendChild(div);
+  }
+}
+
+function renderAll() { renderOverview(); renderList(); renderOrdersTab(); }
+
+// ---------- wiring ----------
+document.getElementById('yearSel').addEventListener('change', renderAll);
+document.getElementById('quarterSel').addEventListener('change', renderAll);
+document.getElementById('teamSel').addEventListener('change', renderAll);
+document.getElementById('resultSelTop').addEventListener('change', renderAll);
+document.getElementById('searchBox').addEventListener('input', () => { listState.page = 0; renderList(); });
+document.getElementById('resultSel').addEventListener('change', () => { listState.page = 0; renderList(); });
+document.getElementById('listYearSel').addEventListener('change', () => { listState.page = 0; renderList(); });
+document.getElementById('listQuarterSel').addEventListener('change', () => { listState.page = 0; renderList(); });
+document.getElementById('listTeamSel').addEventListener('change', () => { listState.page = 0; renderList(); });
+document.getElementById('winPctSel').addEventListener('change', () => { listState.page = 0; renderList(); });
+function showToast(msg, kind){
+  let el = document.getElementById('refreshToast');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'refreshToast';
+    el.style.cssText = 'position:fixed;bottom:24px;right:24px;padding:12px 18px;border-radius:8px;font-size:14px;font-weight:500;box-shadow:0 4px 12px rgba(0,0,0,.15);z-index:9999;transition:opacity .3s;';
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  const bg = kind === 'error' ? '#fee2e2' : kind === 'info' ? '#dbeafe' : '#d1fae5';
+  const fg = kind === 'error' ? '#991b1b' : kind === 'info' ? '#1e40af' : '#065f46';
+  el.style.background = bg; el.style.color = fg; el.style.opacity = '1';
+  clearTimeout(el._t);
+  el._t = setTimeout(() => { el.style.opacity = '0'; }, 3500);
+}
+
+async function triggerRebuild(btn){
+  const orig = btn.textContent;
+  btn.disabled = true; btn.textContent = '⏳ Checking…';
+  try {
+    const r = await fetch('/rebuild', {method:'POST'});
+    const j = await r.json().catch(() => ({}));
+    if(!r.ok || j.ok === false){ throw new Error(j.error || ('HTTP '+r.status)); }
+    if(j.updated){
+      showToast('New data — reloading…', 'info');
+      setTimeout(() => window.location.reload(), 600);
+    } else {
+      showToast('✓ Already up to date', 'success');
+      btn.disabled = false; btn.textContent = orig;
+    }
+  } catch(e){
+    btn.disabled = false; btn.textContent = orig;
+    showToast('Rebuild failed: ' + e.message, 'error');
+  }
+}
+
+// Auto-reload poller: every 60s, ask the server if it has re-baked since this
+// page loaded. If yes, reload to show the latest. Cheap — no Graph hit.
+(function(){
+  const myBakeId = (typeof EMBEDDED !== 'undefined' && EMBEDDED && EMBEDDED.bake_id) || null;
+  if(!myBakeId) return;
+  async function check(){
+    try {
+      const r = await fetch('/bake_id', {cache: 'no-store'});
+      const j = await r.json();
+      if(j && j.bake_id && j.bake_id > myBakeId){
+        showToast('New data available — reloading…', 'info');
+        setTimeout(() => window.location.reload(), 1200);
+      }
+    } catch(_){ /* swallow */ }
+  }
+  setInterval(check, 60_000);
+  // First check after 30s so a quick auto-refresh post-load is picked up fast.
+  setTimeout(check, 30_000);
+})();
+document.getElementById('refreshBtn3').addEventListener('click', (e) => triggerRebuild(e.currentTarget));
+document.querySelectorAll('#pipelineList th.sortable').forEach(th => {
+  th.addEventListener('click', () => {
+    const k = th.dataset.key;
+    if (listState.sortKey === k) listState.sortDir *= -1;
+    else { listState.sortKey = k; listState.sortDir = (k==='revenue'||k==='winPct'||k==='year'||k==='quarter') ? -1 : 1; }
+    listState.page = 0; renderList();
+  });
+});
+// Orders Summary — sort by any column
+document.querySelectorAll('#orderSummaryTable th.sortable').forEach(th => {
+  th.addEventListener('click', () => {
+    const k = th.dataset.key;
+    if (!k) return;
+    if (ordersSortState.sortKey === k) {
+      ordersSortState.sortDir *= -1;
+    } else {
+      ordersSortState.sortKey = k;
+      ordersSortState.sortDir = ORDERS_NUMERIC_KEYS.has(k) ? -1 : 1;
+    }
+    renderOrdersTab();
+  });
+});
+document.getElementById('prevPage').addEventListener('click', () => { listState.page--; renderList(); });
+document.getElementById('nextPage').addEventListener('click', () => { listState.page++; renderList(); });
+document.getElementById('refreshBtn').addEventListener('click', (e) => triggerRebuild(e.currentTarget));
+// Filters that *affect* the Cost Center dropdown's option list. When they
+// change, rebuild the CC dropdown first (which may invalidate the user's
+// current selection), then re-render.
+['orderYearSel','orderTeamSel','orderTypeSel','orderCustSel'].forEach(id =>
+  document.getElementById(id).addEventListener('change', () => {
+    rebuildCostCenterDropdown();
+    renderOrdersTab();
+  })
+);
+// Cost Center itself just triggers a re-render (no dropdown rebuild — that
+// would loop and lock the user out of switching back).
+document.getElementById('orderCcSel').addEventListener('change', renderOrdersTab);
+// Product multi-select dropdown wiring
+(function () {
+  const wrap = document.getElementById('orderProductWrap');
+  const btn = document.getElementById('orderProductBtn');
+  const panel = document.getElementById('orderProductPanel');
+  const list = document.getElementById('orderProductList');
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const open = !panel.hidden;
+    panel.hidden = open;
+    btn.setAttribute('aria-expanded', String(!open));
+  });
+  panel.addEventListener('click', (e) => e.stopPropagation());
+  list.addEventListener('change', (e) => {
+    const cb = e.target.closest('input[type=checkbox]');
+    if (!cb) return;
+    if (cb.checked) orderProductFilter.add(cb.value);
+    else orderProductFilter.delete(cb.value);
+    updateProductLabel();
+    renderOrdersTab();
+  });
+  panel.querySelectorAll('.ms-actions button').forEach(b => {
+    b.addEventListener('click', () => {
+      const action = b.dataset.action;
+      if (action === 'all') { ALL_PRODUCTS.forEach(p => orderProductFilter.add(p)); }
+      else if (action === 'none') { orderProductFilter.clear(); }
+      renderProductList();
+      updateProductLabel();
+      renderOrdersTab();
+    });
+  });
+  document.addEventListener('click', (e) => {
+    if (!wrap.contains(e.target) && !panel.hidden) {
+      panel.hidden = true;
+      btn.setAttribute('aria-expanded', 'false');
+    }
+  });
+})();
+document.querySelectorAll('.tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b === btn));
+    const t = btn.dataset.tab;
+    document.getElementById('tab-overview').classList.toggle('hidden', t !== 'overview');
+    document.getElementById('tab-list').classList.toggle('hidden', t !== 'list');
+    document.getElementById('tab-orders').classList.toggle('hidden', t !== 'orders');
+    // Show top toolbar (Year/Quarter/Team) only on Overview & In-Progress Pipeline tabs
+    // Top toolbar (Year/Quarter/Team/Outcome) is for Overview tab only
+    document.getElementById('toolbar').style.display = (t === 'overview') ? 'flex' : 'none';
+    // When the Orders tab becomes visible, re-render so the heatmap gets correct dimensions
+    if (t === 'orders') {
+      // Use rAF so layout has applied before we measure container width
+      requestAnimationFrame(() => renderOrdersTab());
+    }
+  });
+});
+
+// Also re-render the heatmap if the window is resized while on the orders tab
+window.addEventListener('resize', () => {
+  if (!document.getElementById('tab-orders').classList.contains('hidden')) {
+    renderOrdersTab();
+  }
+});
+
+document.getElementById('refreshBtn2').addEventListener('click', (e) => triggerRebuild(e.currentTarget));
+
+// ---------- start ----------
+rebuildSelectors();
+rebuildOrderSelectors();
+renderAll();
+</script>
+</body>
+</html>

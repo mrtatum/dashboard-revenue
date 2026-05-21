@@ -1,0 +1,61 @@
+services:
+  dashboard:
+    build:
+      context: .
+      # No platform pin — Buildx builds natively for the host arch
+      # (arm64 on Apple Silicon, amd64 on Intel/AMD). The CI workflow in
+      # .github/workflows/docker-publish.yml produces a multi-arch image
+      # (linux/amd64 + linux/arm64) for distribution.
+    image: dashboard-revenue:latest
+    container_name: dashboard-revenue
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      # --- Auth: identity used to read OneDrive ----------------------------
+      # All four are produced by running tools/get_refresh_token.py once on
+      # the laptop with the Microsoft account that owns (or has been shared
+      # with) the target folder. The refresh token is bound to that identity
+      # and to the Entra app you registered (MS_CLIENT_ID).
+      MS_CLIENT_ID: "${MS_CLIENT_ID}"
+      MS_REFRESH_TOKEN: "${MS_REFRESH_TOKEN}"
+      # OAuth authority:
+      #   * Business → your tenant GUID or domain (e.g. contoso.onmicrosoft.com)
+      #   * Personal → "consumers"
+      #   * Either   → "common"
+      MS_TENANT: "${MS_TENANT}"
+
+      # --- Folder scope: the only place the container will ever read -------
+      ONEDRIVE_DRIVE_ID: "${ONEDRIVE_DRIVE_ID}"
+      ONEDRIVE_ITEM_ID: "${ONEDRIVE_ITEM_ID}"
+
+      # --- Web service hardening ------------------------------------------
+      # If set, /rebuild requires header  X-Rebuild-Token: <value>.
+      # Leave blank for a private LAN deployment; set it for anything internet-facing.
+      REBUILD_TOKEN: "${REBUILD_TOKEN:-}"
+
+      BAKE_ON_START: "${BAKE_ON_START:-1}"
+
+      # Smart auto-refresh: poll OneDrive every N seconds, rebuild only when
+      # data has actually changed. 0 = disabled (manual Refresh button only).
+      # 900 = every 15 min. The dashboard tab auto-reloads when bake_id changes.
+      AUTO_REFRESH_INTERVAL_SECONDS: "${AUTO_REFRESH_INTERVAL_SECONDS:-0}"
+    volumes:
+      # IMPORTANT: these are Docker-managed *named* volumes, NOT host bind
+      # mounts. The container never reads or writes paths on your laptop or
+      # server filesystem. Everything below lives inside Docker's volume
+      # store and is created on first `docker compose up`.
+      - dashboard-sources:/app/sources    # xlsx files downloaded from OneDrive (cache)
+      - dashboard-static:/app/static      # baked Pipeline_Dashboard.html (the served page)
+      - dashboard-secrets:/app/secrets    # rotated refresh tokens (chmod 700)
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+# Named volumes are owned by Docker. To wipe state: `docker compose down -v`.
+volumes:
+  dashboard-sources:
+  dashboard-static:
+  dashboard-secrets:
