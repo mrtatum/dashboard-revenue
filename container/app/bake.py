@@ -206,6 +206,61 @@ def _split_brands(product: Any) -> list[dict]:
     return [{"name": p, "share": share} for p in parts]
 
 
+# Matches patterns like "Dell=60%", "Huawei = 40.5%", "VMware=100 %"
+_PROD_PCT_RE = re.compile(r"([^=,;\n]+?)\s*=\s*(\d+(?:\.\d+)?)\s*%", re.IGNORECASE)
+
+
+def _parse_product_shares(product: Any) -> list[dict]:
+    """Return brand/product attribution as a list of {name, share}.
+
+    Reads explicit percentage splits written in the product cell using the
+    pattern  Name=XX%  (e.g. "Dell=60%, Huawei=40%").  Multiple entries may
+    be separated by commas, semicolons, or whitespace.
+
+    Rules:
+    - If one or more  Name=XX%  patterns are found, those percentages drive
+      the revenue split.  Each name is canonicalized through _BRAND_PATTERNS
+      where possible; unknown names are kept as-is.
+    - Percentages are normalized so they always sum to 1.0 (handles cases
+      where the cell totals 99% or 101% due to rounding).
+    - If a name appears more than once its percentages are summed.
+    - If NO percentage pattern is found in the cell the function falls back
+      to _split_brands(), which applies equal shares across all recognized
+      brands (or splits on delimiters for unknown vendors).  This preserves
+      the existing behaviour for cells that carry no explicit % information,
+      treating the full revenue as 100% for that product.
+    """
+    if not product:
+        return []
+    raw = str(product).strip()
+
+    matches = _PROD_PCT_RE.findall(raw)
+    if not matches:
+        # No explicit percentages — fall back to equal-share brand splitting.
+        return _split_brands(raw)
+
+    # Aggregate percentages per canonical name (handles duplicates).
+    agg: dict[str, float] = {}
+    for name_raw, pct_str in matches:
+        name_raw = name_raw.strip()
+        if not name_raw:
+            continue
+        pct = float(pct_str)
+        # Try to resolve to a canonical brand name; keep raw text if unknown.
+        canonicals = _canonicalize_brands(name_raw)
+        name = canonicals[0] if canonicals else name_raw
+        agg[name] = agg.get(name, 0.0) + pct
+
+    if not agg:
+        return _split_brands(raw)
+
+    total_pct = sum(agg.values())
+    if total_pct <= 0:
+        total_pct = 100.0
+
+    return [{"name": n, "share": round(p / total_pct, 4)} for n, p in agg.items()]
+
+
 def parse_pipeline(xlsx_path: pathlib.Path) -> list[dict]:
     log.info("pipeline: reading %s", xlsx_path)
     wb = openpyxl.load_workbook(xlsx_path, data_only=True, read_only=True)
@@ -281,7 +336,7 @@ def parse_pipeline(xlsx_path: pathlib.Path) -> list[dict]:
             "presales": (str(r[col_presales]).strip() if col_presales is not None and r[col_presales] else None),
             "product": (str(product).strip() if product else None),
             "productRaw": (str(product).strip() if product else None),
-            "brands": _split_brands(product),
+            "brands": _parse_product_shares(product),
             "revenue": revenue,
             "project": (str(r[col_project]).strip() if col_project is not None and r[col_project] else None),
             "projectCode": (str(r[col_projectcode]).strip() if col_projectcode is not None and r[col_projectcode] else None),
