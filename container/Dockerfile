@@ -8,7 +8,7 @@
 #   docker buildx build --platform linux/amd64,linux/arm64 \
 #       -t ghcr.io/<you>/dashboard-revenue:latest --push container/
 #
-# Run:    docker run --rm -p 8080:8080 \
+# Run:    docker run --rm -p 8081:8081 \
 #             -e MS_CLIENT_ID='<your-app-client-id>' \
 #             -e MS_REFRESH_TOKEN='<from-get_refresh_token.py>' \
 #             -e ONEDRIVE_DRIVE_ID='<from-get_refresh_token.py>' \
@@ -54,12 +54,12 @@ RUN mkdir -p /app/sources /app/static /app/secrets \
  && chmod 700 /app/secrets
 USER dashboard
 
-EXPOSE 8080
+EXPOSE 8081
 
 # Healthcheck hits the cheap /healthz route.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD curl -fsS http://127.0.0.1:8080/healthz || exit 1
+    CMD curl -fsS http://127.0.0.1:8081/healthz || exit 1
 
 # Gunicorn: 2 workers, 120s timeout to allow a long rebuild on the worker thread.
-CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--workers", "2", "--threads", "4", \
+CMD ["gunicorn", "--bind", "0.0.0.0:8081", "--workers", "2", "--threads", "4", \
      "--timeout", "600", "--access-logfile", "-", "app.server:app"]

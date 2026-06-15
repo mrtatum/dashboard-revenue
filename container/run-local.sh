@@ -17,7 +17,7 @@ cd "$(dirname "$0")"
 
 IMAGE=dashboard-revenue:local
 NAME=dashboard-revenue
-PORT=8080
+PORT=8081
 
 has_docker() { command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; }
 
@@ -75,7 +75,7 @@ fi
 
 echo "→ Starting $NAME on http://localhost:$PORT …"
 docker run -d --name "$NAME" \
-    -p "$PORT:8080" \
+    -p "$PORT:8081" \
     "${ENV_ARGS[@]}" \
     -v dashboard-sources:/app/sources \
     -v dashboard-static:/app/static \

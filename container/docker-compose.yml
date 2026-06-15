@@ -10,7 +10,7 @@ services:
     container_name: dashboard-revenue
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      - "8081:8081"
     environment:
       # --- Auth: identity used to read OneDrive ----------------------------
       # All four are produced by running tools/get_refresh_token.py once on
@@ -49,7 +49,7 @@ services:
       - dashboard-static:/app/static      # baked Pipeline_Dashboard.html (the served page)
       - dashboard-secrets:/app/secrets    # rotated refresh tokens (chmod 700)
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/healthz"]
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8081/healthz"]
       interval: 30s
       timeout: 5s
       retries: 3
