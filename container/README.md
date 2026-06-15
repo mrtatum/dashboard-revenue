@@ -139,13 +139,13 @@ docker compose up -d --build
 Wait about 15 seconds for the first bake, then open:
 
 ```
-http://<your-server-ip>:8080/dashboard
+http://<your-server-ip>:8081/dashboard
 ```
 
 Or on the same machine:
 
 ```
-http://localhost:8080/dashboard
+http://localhost:8081/dashboard
 ```
 
 ---
@@ -164,6 +164,78 @@ docker compose up -d --build
 ```
 
 That's it — no other state to transfer. The container downloads source files from OneDrive fresh on first `/rebuild`.
+
+---
+
+## Deploying a pre-built image from GitHub
+
+If you don't want to build the image on the server, pull the pre-built image published by GitHub Actions instead.
+
+### Option A — With the repo (recommended)
+
+```bash
+# 1. Clone the repo (only needed once)
+git clone https://github.com/mrtatum/dashboard-revenue.git
+cd dashboard-revenue/container
+
+# 2. Create .env from the template and fill in your credentials
+cp .env.example .env
+# edit .env with MS_CLIENT_ID, MS_REFRESH_TOKEN, MS_TENANT,
+# ONEDRIVE_DRIVE_ID, ONEDRIVE_ITEM_ID
+
+# 3. Pull the latest image from GitHub Container Registry
+docker compose pull
+
+# 4. Start the container
+docker compose up -d
+
+# 5. Trigger the first dashboard build from OneDrive
+curl -X POST http://localhost:8081/rebuild
+```
+
+Dashboard will be available at **http://\<your-server-ip\>:8081/dashboard**
+
+---
+
+### Option B — Without the repo (image only)
+
+If you only have the image and no repo files, create a `.env` file manually and run:
+
+```bash
+docker run -d \
+  --name dashboard-revenue \
+  --restart unless-stopped \
+  -p 8081:8081 \
+  --env-file .env \
+  -v dashboard-sources:/app/sources \
+  -v dashboard-static:/app/static \
+  -v dashboard-secrets:/app/secrets \
+  ghcr.io/mrtatum/dashboard-revenue:latest
+
+# Trigger first build
+curl -X POST http://localhost:8081/rebuild
+```
+
+---
+
+### Updating to a newer image
+
+Whenever a new image is published to GitHub (after a `git push` to `main`):
+
+```bash
+cd dashboard-revenue/container
+
+# Pull latest image
+docker compose pull
+
+# Restart with the new image
+docker compose up -d --force-recreate
+
+# Force dashboard rebuild from OneDrive
+curl -X POST http://localhost:8081/rebuild?force=1
+```
+
+Check the build status at: **https://github.com/mrtatum/dashboard-revenue/actions**
 
 ---
 
@@ -217,13 +289,13 @@ docker compose down
 docker compose down -v
 
 # Check status and auth wiring
-curl -s http://localhost:8080/status | python3 -m json.tool
+curl -s http://localhost:8081/status | python3 -m json.tool
 
 # Force a dashboard rebuild from OneDrive
-curl -X POST http://localhost:8080/rebuild
+curl -X POST http://localhost:8081/rebuild
 
 # Force rebuild even if OneDrive data has not changed
-curl -X POST "http://localhost:8080/rebuild?force=1"
+curl -X POST "http://localhost:8081/rebuild?force=1"
 ```
 
 ---
