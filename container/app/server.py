@@ -158,9 +158,14 @@ def _do_rebuild(force: bool = False) -> dict:
         "rebuild: pulling from drive=%s item=%s (scoped, authenticated)",
         client.drive_id[:8] + "...", client.item_id[:12] + "...",
     )
-    dl = client.download_to(SOURCES_DIR, include_ext=(".xlsx",), skip_unchanged=True)
-    log.info("rebuild: download done — %d new, %d cached, %.1f MB",
-             dl.downloaded, dl.skipped, dl.total_bytes / 1_048_576)
+    # Never reuse the local cache: re-download every file fresh and prune any
+    # local file that no longer exists upstream, so the bake always reflects
+    # exactly what's in OneDrive (deletions/renames included).
+    dl = client.download_to(
+        SOURCES_DIR, include_ext=(".xlsx",), skip_unchanged=False, prune=True,
+    )
+    log.info("rebuild: download done — %d downloaded, %d pruned, %.1f MB",
+             dl.downloaded, dl.pruned, dl.total_bytes / 1_048_576)
     summary = bake_mod.bake(
         SOURCES_DIR, TEMPLATE_PATH, OUTPUT_PATH,
         watermark=remote.to_dict(),
@@ -172,6 +177,7 @@ def _do_rebuild(force: bool = False) -> dict:
         "download": {
             "downloaded": dl.downloaded,
             "skipped": dl.skipped,
+            "pruned": dl.pruned,
             "total_bytes": dl.total_bytes,
             "file_count": len(dl.files),
         },

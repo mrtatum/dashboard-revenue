@@ -38,6 +38,7 @@ class DownloadResult:
     skipped: int
     total_bytes: int
     files: list[str]
+    pruned: int = 0
 
 
 @dataclass
@@ -156,17 +157,30 @@ class ScopedOneDrive:
         target_dir: str | os.PathLike,
         include_ext: tuple[str, ...] = (".xlsx",),
         skip_unchanged: bool = True,
+        prune: bool = False,
     ) -> DownloadResult:
+        """Mirror the scoped OneDrive folder into target_dir.
+
+        skip_unchanged=True  reuses a local file when its size already matches
+                             upstream (fast, quota-friendly).
+        skip_unchanged=False always re-downloads every file (no cache reuse).
+        prune=True           deletes any local file (matching include_ext) that
+                             is NOT present upstream, so deletions/renames in
+                             OneDrive are reflected instead of lingering in the
+                             cache. Empty directories left behind are removed.
+        """
         target = pathlib.Path(target_dir)
         target.mkdir(parents=True, exist_ok=True)
         downloaded = skipped = 0
         total_bytes = 0
         files: list[str] = []
+        seen: set[pathlib.Path] = set()
         for rel_path, item in self.walk():
             if include_ext and not rel_path.lower().endswith(include_ext):
                 continue
             dest = target / rel_path
             dest.parent.mkdir(parents=True, exist_ok=True)
+            seen.add(dest.resolve())
             size = item.get("size", 0)
             if skip_unchanged and dest.exists() and dest.stat().st_size == size and size > 0:
                 skipped += 1
@@ -183,11 +197,36 @@ class ScopedOneDrive:
             downloaded += 1
             total_bytes += dest.stat().st_size
             files.append(rel_path)
+
+        pruned = 0
+        if prune:
+            # Remove any local file of the tracked type(s) that upstream no
+            # longer has, then clean up directories left empty by the removal.
+            for existing in target.rglob("*"):
+                if not existing.is_file():
+                    continue
+                if include_ext and not existing.name.lower().endswith(include_ext):
+                    continue
+                if existing.resolve() not in seen:
+                    try:
+                        existing.unlink()
+                        pruned += 1
+                        log.info("prune: removed stale %s", existing.relative_to(target))
+                    except OSError as exc:
+                        log.warning("prune: could not remove %s: %s", existing, exc)
+            for d in sorted(target.rglob("*"), key=lambda p: len(p.parts), reverse=True):
+                if d.is_dir() and not any(d.iterdir()):
+                    try:
+                        d.rmdir()
+                    except OSError:
+                        pass
+
         return DownloadResult(
             downloaded=downloaded,
             skipped=skipped,
             total_bytes=total_bytes,
             files=sorted(files),
+            pruned=pruned,
         )
 
     def _stream_to_file_unauth(self, url: str, dest: pathlib.Path, retries: int = 3) -> None:
