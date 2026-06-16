@@ -705,6 +705,102 @@ function ordersFiltered() {
     return { ...o, items, total_revenue: rev, total_cost: cost, total_gp: gp };
   }).filter(o => o.items.length > 0);
 }
+// Categorize an SQ item code into a named bucket. Module-scoped so both the
+// "Revenue by Category" chart and its drill-down modal share one definition.
+function categorizeItem(code) {
+  if (!code) return 'Other';
+  const c = String(code).toUpperCase().trim();
+  if (c === 'SV-IMP' || c === 'SV-PRESALE') return 'Implement service';
+  if (c === 'SV-PMA' || c === 'SV-CMA') return 'MA service';
+  if (c.startsWith('SW-')) return 'Software License';
+  if (c.startsWith('HW-')) return 'Hardware';
+  if (c.startsWith('VS-')) return 'Subcontract Service';
+  return 'Other';
+}
+const CAT_ORDER = ['Hardware','Software License','MA service','Implement service','Subcontract Service','Other'];
+const CAT_COLORS = { 'Hardware':'#10b981', 'Software License':'#8b5cf6', 'MA service':'#f59e0b', 'Implement service':'#3b82f6', 'Subcontract Service':'#06b6d4', 'Other':'#9ca3af' };
+
+// Drill-down: list every SQ line item belonging to `cat`, across the orders
+// currently passed in (already filtered by the toolbar). Grouped by SQ so the
+// user can see which orders contribute to a category bar they clicked.
+function openCategoryDrill(cat, orders) {
+  // Collect matching items, grouped by SQ.
+  const groups = new Map(); // sq_no -> { order, items:[], rev, cost, gp }
+  let catRev = 0, catCost = 0, catGp = 0, itemCount = 0;
+  orders.forEach(o => o.items.forEach(it => {
+    if (categorizeItem(it.item) !== cat) return;
+    const key = o.sq_no || '(no SQ)';
+    if (!groups.has(key)) groups.set(key, { order: o, items: [], rev: 0, cost: 0, gp: 0 });
+    const g = groups.get(key);
+    g.items.push(it);
+    g.rev += it.revenue || 0; g.cost += it.cost || 0; g.gp += it.gp || 0;
+    catRev += it.revenue || 0; catCost += it.cost || 0; catGp += it.gp || 0;
+    itemCount++;
+  }));
+  const grouped = [...groups.values()].sort((a, b) => b.rev - a.rev);
+  const catGpPct = catRev > 0 ? (catGp / catRev * 100).toFixed(1) + '%' : '—';
+
+  // Build the body: per-SQ section header row, then its line items.
+  let rows = '';
+  if (!grouped.length) {
+    rows = '<tr><td colspan="7" class="empty">No items in this category</td></tr>';
+  } else {
+    grouped.forEach(g => {
+      const o = g.order;
+      const gpPct = g.rev > 0 ? (g.gp / g.rev * 100).toFixed(1) + '%' : '—';
+      rows += `<tr style="background:#f1f5f9;font-weight:600;">
+        <td>${esc(o.sq_no)}</td>
+        <td colspan="2">${esc(o.project_name)} <span style="color:#6b7280;font-weight:400;">• ${esc(o.customer)}</span></td>
+        <td class="num">${fmtFull(g.rev)}</td><td class="num">${fmtFull(g.cost)}</td>
+        <td class="num">${fmtFull(g.gp)}</td><td class="num">${gpPct}</td>
+      </tr>`;
+      g.items.sort((a, b) => (b.revenue || 0) - (a.revenue || 0)).forEach(it => {
+        const pct = (it.gp_pct != null) ? (it.gp_pct * 100).toFixed(1) + '%' : '—';
+        rows += `<tr>
+          <td style="color:#9ca3af;">↳</td>
+          <td>${esc(it.item)}</td><td>${esc(it.remark)}</td>
+          <td class="num">${fmtFull(it.revenue)}</td><td class="num">${fmtFull(it.cost)}</td>
+          <td class="num">${fmtFull(it.gp)}</td><td class="num">${pct}</td>
+        </tr>`;
+      });
+    });
+  }
+
+  let overlay = document.getElementById('catDrillOverlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'catDrillOverlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:9998;display:flex;align-items:center;justify-content:center;padding:24px;';
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { const o = document.getElementById('catDrillOverlay'); if (o) o.remove(); } });
+    document.body.appendChild(overlay);
+  }
+  overlay.innerHTML = `
+    <div style="background:#fff;border-radius:10px;max-width:980px;width:100%;max-height:86vh;display:flex;flex-direction:column;box-shadow:0 12px 40px rgba(0,0,0,.25);overflow:hidden;">
+      <div style="display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid #e5e7eb;">
+        <span style="width:14px;height:14px;border-radius:3px;background:${CAT_COLORS[cat] || '#9ca3af'};"></span>
+        <h3 style="margin:0;font-size:17px;">${esc(cat)}</h3>
+        <span style="color:#6b7280;font-size:13px;">${grouped.length} SQ • ${itemCount} item${itemCount===1?'':'s'} • Revenue ${fmtFull(catRev)} • GP ${fmtFull(catGp)} (${catGpPct})</span>
+        <button id="catDrillClose" style="margin-left:auto;border:none;background:#f3f4f6;border-radius:6px;width:30px;height:30px;cursor:pointer;font-size:18px;line-height:1;">×</button>
+      </div>
+      <div style="overflow:auto;padding:0 20px 20px;">
+        <table style="width:100%;border-collapse:collapse;font-size:13px;">
+          <thead><tr style="position:sticky;top:0;background:#fff;">
+            <th style="text-align:left;padding:8px;border-bottom:2px solid #e5e7eb;">SQ No. / Item</th>
+            <th style="text-align:left;padding:8px;border-bottom:2px solid #e5e7eb;">Project / Code</th>
+            <th style="text-align:left;padding:8px;border-bottom:2px solid #e5e7eb;">Customer / Remark</th>
+            <th style="text-align:right;padding:8px;border-bottom:2px solid #e5e7eb;">Revenue</th>
+            <th style="text-align:right;padding:8px;border-bottom:2px solid #e5e7eb;">Cost</th>
+            <th style="text-align:right;padding:8px;border-bottom:2px solid #e5e7eb;">GP</th>
+            <th style="text-align:right;padding:8px;border-bottom:2px solid #e5e7eb;">%GP</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>`;
+  overlay.querySelector('#catDrillClose').addEventListener('click', () => overlay.remove());
+}
+
 function renderOrdersTab() {
   if (!ORDERS.orders.length) {
     document.getElementById('orderKpis').innerHTML = '<div class="empty" style="grid-column:1/-1;">No SQ orders found</div>';
@@ -740,22 +836,10 @@ function renderOrdersTab() {
     <div class="kpi"><div class="kpi-label">% Product GP</div><div class="kpi-value">${prodGpPct.toFixed(1)}%</div><div class="kpi-sub">${fmtMoney2(prodGp)} / ${fmtMoney2(prodRev)}</div></div>
     <div class="kpi"><div class="kpi-label">Services</div><div class="kpi-value">${fmtMoney2(bySection['Services'].rev)}</div><div class="kpi-sub">${bySection['Services'].count} items</div></div>
     <div class="kpi"><div class="kpi-label">Product</div><div class="kpi-value">${fmtMoney2(bySection['Product'].rev)}</div><div class="kpi-sub">${bySection['Product'].count} items</div></div>`;
-  // Categorize each item code into named buckets
-  function categorize(code) {
-    if (!code) return 'Other';
-    const c = String(code).toUpperCase().trim();
-    if (c === 'SV-IMP' || c === 'SV-PRESALE') return 'Implement service';
-    if (c === 'SV-PMA' || c === 'SV-CMA') return 'MA service';
-    if (c.startsWith('SW-')) return 'Software License';
-    if (c.startsWith('HW-')) return 'Hardware';
-    if (c.startsWith('VS-')) return 'Subcontract Service';
-    return 'Other';
-  }
-  const CAT_ORDER = ['Hardware','Software License','MA service','Implement service','Subcontract Service','Other'];
-  const CAT_COLORS = { 'Hardware':'#10b981', 'Software License':'#8b5cf6', 'MA service':'#f59e0b', 'Implement service':'#3b82f6', 'Subcontract Service':'#06b6d4', 'Other':'#9ca3af' };
+  // Categorize each item code into named buckets (categorizeItem is module-scoped)
   const catAgg = {};
   orders.forEach(o => o.items.forEach(it => {
-    const cat = categorize(it.item);
+    const cat = categorizeItem(it.item);
     if (!catAgg[cat]) catAgg[cat] = { rev: 0, count: 0 };
     catAgg[cat].rev += it.revenue || 0;
     catAgg[cat].count++;
@@ -766,7 +850,10 @@ function renderOrdersTab() {
     backgroundColor: catLabels.map(c => CAT_COLORS[c] || '#9ca3af'),
   }]},
     options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false,
-      plugins:{ legend:{display:false}, tooltip:{callbacks:{label:c=>`${fmtFull(c.parsed.x)} • ${catAgg[c.label].count} items`}} },
+      // Click a bar to drill down to every SQ line item in that category.
+      onClick:(evt, els) => { if (els && els.length) openCategoryDrill(catLabels[els[0].index], orders); },
+      onHover:(evt, els) => { evt.native.target.style.cursor = (els && els.length) ? 'pointer' : 'default'; },
+      plugins:{ legend:{display:false}, tooltip:{callbacks:{label:c=>`${fmtFull(c.parsed.x)} • ${catAgg[c.label].count} items • click to drill down`}} },
       scales:{ x:{ ticks:{ callback:v=>fmtMoney(v) } } } } });
   const productAgg = {};
   orders.forEach(o => o.items.forEach(it => {
