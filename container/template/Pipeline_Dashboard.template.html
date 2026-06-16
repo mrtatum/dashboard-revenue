@@ -1001,18 +1001,15 @@ function showToast(msg, kind){
 
 async function triggerRebuild(btn){
   const orig = btn.textContent;
-  btn.disabled = true; btn.textContent = '⏳ Checking…';
+  btn.disabled = true; btn.textContent = '⏳ Rebuilding…';
   try {
-    const r = await fetch('/rebuild', {method:'POST'});
+    // force=1 → always re-download from OneDrive and re-bake, regardless of
+    // the watermark. Equivalent to: curl -X POST /rebuild?force=1
+    const r = await fetch('/rebuild?force=1', {method:'POST'});
     const j = await r.json().catch(() => ({}));
     if(!r.ok || j.ok === false){ throw new Error(j.error || ('HTTP '+r.status)); }
-    if(j.updated){
-      showToast('New data — reloading…', 'info');
-      setTimeout(() => window.location.reload(), 600);
-    } else {
-      showToast('✓ Already up to date', 'success');
-      btn.disabled = false; btn.textContent = orig;
-    }
+    showToast('Rebuilt — reloading…', 'info');
+    setTimeout(() => window.location.reload(), 600);
   } catch(e){
     btn.disabled = false; btn.textContent = orig;
     showToast('Rebuild failed: ' + e.message, 'error');
