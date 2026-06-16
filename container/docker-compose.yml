@@ -38,8 +38,8 @@ services:
 
       # Smart auto-refresh: poll OneDrive every N seconds, rebuild only when
       # data has actually changed. 0 = disabled (manual Refresh button only).
-      # 900 = every 15 min. The dashboard tab auto-reloads when bake_id changes.
-      AUTO_REFRESH_INTERVAL_SECONDS: "${AUTO_REFRESH_INTERVAL_SECONDS:-0}"
+      # 300 = every 5 min. The dashboard tab auto-reloads when bake_id changes.
+      AUTO_REFRESH_INTERVAL_SECONDS: "${AUTO_REFRESH_INTERVAL_SECONDS:-300}"
     volumes:
       # IMPORTANT: these are Docker-managed *named* volumes, NOT host bind
       # mounts. The container never reads or writes paths on your laptop or
