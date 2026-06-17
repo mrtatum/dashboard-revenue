@@ -90,7 +90,7 @@
       <option value="Drop">Drop</option>
       <option value="Inactive">Inactive</option>
     </select>
-    <button id="refreshBtn" class="primary" title="Hard-reload the page to pick up the latest rebuild">↻ Refresh</button>
+    <button id="refreshBtn" class="primary" title="Reload the page to show the latest data (use the browser refresh to pull fresh data from OneDrive)">↻ Reload</button>
     <span style="margin-left:auto; color:#6b7280; font-size:13px;">Built: 2026-05-07 11:48:33</span>
   </div>
 
@@ -126,7 +126,7 @@
           <div class="ms-list" id="orderProductList"></div>
         </div>
       </div>
-      <button id="refreshBtn2" class="primary" title="Hard-reload to pick up the latest rebuild">↻ Refresh</button>
+      <button id="refreshBtn2" class="primary" title="Reload the page to show the latest data (use the browser refresh to pull fresh data from OneDrive)">↻ Reload</button>
       <span id="orderCount" style="margin-left:auto; color:#6b7280; font-size:13px;"></span>
     </div>
     <div class="kpis" id="orderKpis"></div>
@@ -191,7 +191,7 @@
         <option value="75">75% (≥ 70)</option>
       </select>
       <input type="search" id="searchBox" placeholder="Search project, customer, sales, product…" />
-      <button id="refreshBtn3" class="primary" title="Hard-reload">↻ Refresh</button>
+      <button id="refreshBtn3" class="primary" title="Reload the page to show the latest data (use the browser refresh to pull fresh data from OneDrive)">↻ Reload</button>
       <span id="listCount" style="margin-left:auto; color:#6b7280; font-size:13px;"></span>
     </div>
     <div class="card">
@@ -998,22 +998,54 @@ function showToast(msg, kind){
   el._t = setTimeout(() => { el.style.opacity = '0'; }, 3500);
 }
 
-async function triggerRebuild(btn){
-  const orig = btn.textContent;
-  btn.disabled = true; btn.textContent = '⏳ Rebuilding…';
-  try {
-    // force=1 → always re-download from OneDrive and re-bake, regardless of
-    // the watermark. Equivalent to: curl -X POST /rebuild?force=1
-    const r = await fetch('/rebuild?force=1', {method:'POST'});
-    const j = await r.json().catch(() => ({}));
-    if(!r.ok || j.ok === false){ throw new Error(j.error || ('HTTP '+r.status)); }
-    showToast('Rebuilt — reloading…', 'info');
-    setTimeout(() => window.location.reload(), 600);
-  } catch(e){
-    btn.disabled = false; btn.textContent = orig;
-    showToast('Rebuild failed: ' + e.message, 'error');
-  }
+// A scripted reload (the in-page Reload button, or the auto-reload poller)
+// sets this flag so the browser-refresh detector below does NOT mistake it
+// for a genuine browser refresh and trigger a OneDrive rebuild.
+function scriptedReload(){
+  try { sessionStorage.setItem('inPageReload', '1'); } catch(_){}
+  window.location.reload();
 }
+
+// In-page "Reload" button: just reload the page to show the latest baked
+// data. It does NOT pull from OneDrive — only the browser's own refresh does.
+function softReload(btn){
+  btn.disabled = true; btn.textContent = '⏳ Reloading…';
+  scriptedReload();
+}
+
+// Browser-refresh detector: when the user hits the browser's refresh
+// (F5 / Ctrl-R / the browser refresh button), pull fresh data from OneDrive
+// (smart — only re-bakes if the source actually changed), then reload to show
+// it. Scripted reloads (the Reload button or auto-poller) are skipped via the
+// inPageReload flag, so they never trigger a rebuild.
+(function(){
+  let wasReload = false;
+  try {
+    const nav = performance.getEntriesByType('navigation')[0];
+    wasReload = nav ? nav.type === 'reload'
+                    : (performance.navigation && performance.navigation.type === 1);
+  } catch(_){}
+  let scripted = false;
+  try {
+    scripted = sessionStorage.getItem('inPageReload') === '1';
+    sessionStorage.removeItem('inPageReload');
+  } catch(_){}
+  if(!wasReload || scripted) return;
+  (async function(){
+    showToast('Checking OneDrive for new data…', 'info');
+    try {
+      // Smart rebuild (no force): re-downloads + re-bakes only if the
+      // OneDrive watermark changed. Equivalent to: curl -X POST /rebuild
+      const r = await fetch('/rebuild', {method:'POST'});
+      const j = await r.json().catch(() => ({}));
+      if(r.ok && j.ok !== false && j.updated){
+        showToast('New data — reloading…', 'info');
+        try { sessionStorage.setItem('inPageReload', '1'); } catch(_){}
+        setTimeout(() => window.location.reload(), 600);
+      }
+    } catch(_){ /* offline / server busy — keep showing the current data */ }
+  })();
+})();
 
 // Auto-reload poller: every 60s, ask the server if it has re-baked since this
 // page loaded. If yes, reload to show the latest. Cheap — no Graph hit.
@@ -1026,7 +1058,7 @@ async function triggerRebuild(btn){
       const j = await r.json();
       if(j && j.bake_id && j.bake_id > myBakeId){
         showToast('New data available — reloading…', 'info');
-        setTimeout(() => window.location.reload(), 1200);
+        setTimeout(scriptedReload, 1200);
       }
     } catch(_){ /* swallow */ }
   }
@@ -1034,7 +1066,7 @@ async function triggerRebuild(btn){
   // First check after 30s so a quick auto-refresh post-load is picked up fast.
   setTimeout(check, 30_000);
 })();
-document.getElementById('refreshBtn3').addEventListener('click', (e) => triggerRebuild(e.currentTarget));
+document.getElementById('refreshBtn3').addEventListener('click', (e) => softReload(e.currentTarget));
 document.querySelectorAll('#pipelineList th.sortable').forEach(th => {
   th.addEventListener('click', () => {
     const k = th.dataset.key;
@@ -1059,7 +1091,7 @@ document.querySelectorAll('#orderSummaryTable th.sortable').forEach(th => {
 });
 document.getElementById('prevPage').addEventListener('click', () => { listState.page--; renderList(); });
 document.getElementById('nextPage').addEventListener('click', () => { listState.page++; renderList(); });
-document.getElementById('refreshBtn').addEventListener('click', (e) => triggerRebuild(e.currentTarget));
+document.getElementById('refreshBtn').addEventListener('click', (e) => softReload(e.currentTarget));
 // Filters that *affect* the Cost Center dropdown's option list. When they
 // change, rebuild the CC dropdown first (which may invalidate the user's
 // current selection), then re-render.
@@ -1135,7 +1167,7 @@ window.addEventListener('resize', () => {
   }
 });
 
-document.getElementById('refreshBtn2').addEventListener('click', (e) => triggerRebuild(e.currentTarget));
+document.getElementById('refreshBtn2').addEventListener('click', (e) => softReload(e.currentTarget));
 
 // ---------- start ----------
 rebuildSelectors();
